@@ -1,116 +1,109 @@
-# Security Guidelines for codeguide-starter
+# Security Guidelines for Warga+ Mobile App Backend
 
-This document defines mandatory security principles and implementation best practices tailored to the **codeguide-starter** repository. It aligns with Security-by-Design, Least Privilege, Defense-in-Depth, and other core security tenets. All sections reference specific areas of the codebase (e.g., `/app/api/auth/route.ts`, CSS files, environment configuration) to ensure practical guidance.
+This document describes the security principles, controls, and best practices you must follow when building and maintaining the Warga+ Next.js backend API. It aligns with industry standards and ensures a robust, secure foundation for the mobile application.
 
 ---
 
 ## 1. Security by Design
 
-• Embed security from day one: review threat models whenever adding new features (e.g., new API routes, data fetching).
-• Apply “secure defaults” in Next.js configuration (`next.config.js`), enabling strict mode and disabling debug flags in production builds.
-• Maintain a security checklist in your PR template to confirm that each change has been reviewed against this guideline.
-
----
+•  **Embed security early**: Treat security as a first-class concern in design, code reviews, testing, and deployment.  
+•  **Threat modeling**: For every new API endpoint or database schema, identify assets, threat agents, and potential attack vectors.  
+•  **Security gating**: Integrate automated security checks (SAST, dependency scans) into your CI pipeline before merging or deploying.
 
 ## 2. Authentication & Access Control
 
-### 2.1 Password Storage
-- Use **bcrypt** (or Argon2) with a per-user salt to hash passwords in `/app/api/auth/route.ts`.
-- Enforce a strong password policy on both client and server: minimum 12 characters, mixed case, numbers, and symbols.
+### 2.1 Robust Authentication
 
-### 2.2 Session Management
-- Issue sessions via Secure, HttpOnly, SameSite=strict cookies. Do **not** expose tokens to JavaScript.
-- Implement absolute and idle timeouts. For example, invalidate sessions after 30 minutes of inactivity.
-- Protect against session fixation by regenerating session IDs after authentication.
+•  **Token-based (JWT) auth**: Issue short-lived access tokens (e.g., 15 min) and long-lived refresh tokens.  
+•  **Secure storage**: Store refresh tokens in HttpOnly, Secure cookies or device secure storage—never in localStorage.  
+•  **Algorithm validation**: Enforce `alg=RS256` or `HS256` and reject `alg=none`.
 
-### 2.3 Brute-Force & Rate Limiting
-- Apply rate limiting at the API layer (e.g., using `express-rate-limit` or Next.js middleware) on `/api/auth` to throttle repeated login attempts.
-- Introduce exponential backoff or temporary lockout after N failed attempts.
+### 2.2 Password Policies & MFA
 
-### 2.4 Role-Based Access Control (Future)
-- Define user roles in your database model (e.g., `role = 'user' | 'admin'`).
-- Enforce server-side authorization checks in every protected route (e.g., in `dashboard/layout.tsx` loader functions).
+•  **Strong defaults**: Require minimum 10-character passwords with uppercase, lowercase, digits, and symbols.  
+•  **Hashing**: Use Argon2 or bcrypt with a per-user salt.  
+•  **MFA**: Offer TOTP (e.g., Google Authenticator) or SMS-based second factor for high-privilege actions.
 
----
+### 2.3 Session & Token Security
+
+•  **Revocation**: Maintain a token blacklist or rotate signing keys to invalidate compromised tokens.  
+•  **Expiration**: Enforce `exp` claims on JWTs and short idle timeouts for sessions.  
+•  **Rotation**: Refresh tokens rotate on each use; discard and issue a new refresh token upon exchanging.
+
+### 2.4 Role-Based Access Control (RBAC)
+
+•  **Define roles**: e.g., `admin`, `user`, `viewer`.  
+•  **Enforce checks**: On every protected route (`/api/dashboard`, `/api/payments`, etc.), verify the user’s role and permissions server-side before performing any action.
 
 ## 3. Input Handling & Processing
 
-### 3.1 Validate & Sanitize All Inputs
-- On **client** (`sign-up/page.tsx`, `sign-in/page.tsx`): perform basic format checks (email regex, password length).
-- On **server** (`/app/api/auth/route.ts`): re-validate inputs with a schema validator (e.g., `zod`, `Joi`).
-- Reject or sanitize any unexpected fields to prevent injection attacks.
-
-### 3.2 Prevent Injection
-- If you introduce a database later, always use parameterized queries or an ORM (e.g., Prisma) rather than string concatenation.
-- Avoid dynamic `eval()` or template rendering with unsanitized user input.
-
-### 3.3 Safe Redirects
-- When redirecting after login or logout, validate the target against an allow-list to prevent open redirects.
-
----
+•  **Server-side validation**: Use Zod or Joi to validate request bodies, query parameters, and headers in every API route.  
+•  **Prevent injection**: Always use parameterized queries or Drizzle ORM’s query builders. Never concatenate untrusted data into SQL strings.  
+•  **Sanitize outputs**: For any data echoed back (e.g., user-generated feed items), apply context-aware encoding if rendered in HTML or logs.
 
 ## 4. Data Protection & Privacy
 
-### 4.1 Encryption & Secrets
-- Enforce HTTPS/TLS 1.2+ for all front-end ↔ back-end communications.
-- Never commit secrets—use environment variables and a secrets manager (e.g., AWS Secrets Manager, Vault).
+### 4.1 Encryption
 
-### 4.2 Sensitive Data Handling
-- Do ​not​ log raw passwords, tokens, or PII in server logs. Mask or redact any user identifiers.
-- If storing PII in `data.json` or a future database, classify it and apply data retention policies.
+•  **In transit**: Enforce HTTPS (TLS 1.2+) for all client–server and server–server communication.  
+•  **At rest**: Encrypt sensitive columns (e.g., PII) using AES-256 where required by compliance.
 
----
+### 4.2 Secrets Management
+
+•  **Never commit** `.env` or secrets to source control.  
+•  **Use a vault**: Store database credentials, JWT private keys, and third-party API keys in AWS Secrets Manager, Azure Key Vault, or Vault.
+
+### 4.3 Data Minimization & Retention
+
+•  **Least collection**: Only store fields necessary for functionality (e.g., user name, contact info).  
+•  **Retention policy**: Purge old payment logs or anonymous feed interactions according to GDPR/CCPA rules.
 
 ## 5. API & Service Security
 
-### 5.1 HTTPS Enforcement
-- In production, redirect all HTTP traffic to HTTPS (e.g., via Vercel’s redirect rules or custom middleware).
-
-### 5.2 CORS
-- Configure `next.config.js` or API middleware to allow **only** your front-end origin (e.g., `https://your-domain.com`).
-
-### 5.3 API Versioning & Minimal Exposure
-- Version your API routes (e.g., `/api/v1/auth`) to handle future changes without breaking clients.
-- Return only necessary fields in JSON responses; avoid leaking internal server paths or stack traces.
-
----
+•  **HTTPS only**: Redirect all HTTP to HTTPS.  
+•  **Rate limiting**: Implement per-IP and per-user rate limits on critical endpoints (e.g., authentication, payment submissions) to mitigate brute-force and DoS attacks.  
+•  **CORS**: Restrict origins to your mobile app domain or specific API gateway.  
+•  **Versioning**: Namespace endpoints (e.g., `/api/v1/payments`) to manage breaking changes securely.
 
 ## 6. Web Application Security Hygiene
 
-### 6.1 CSRF Protection
-- Use anti-CSRF tokens for any state-changing API calls. Integrate Next.js CSRF middleware or implement synchronizer tokens stored in cookies.
+(This section applies if you deploy a web-admin UI alongside the mobile backend.)
 
-### 6.2 Security Headers
-- In `next.config.js` (or a custom server), add these headers:
-  - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
-  - `X-Content-Type-Options: nosniff`
-  - `X-Frame-Options: DENY`
+•  **CSRF protection**: Use anti-CSRF tokens for any cookie-based state-changing actions.  
+•  **Security headers**: Set in `next.config.js` or a middleware:  
+  - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`  
+  - `Content-Security-Policy` to restrict script and resource sources.  
+  - `X-Frame-Options: DENY`  
+  - `X-Content-Type-Options: nosniff`  
   - `Referrer-Policy: no-referrer-when-downgrade`
-  - `Content-Security-Policy`: restrict script/style/src to self and trusted CDNs.
-
-### 6.3 Secure Cookies
-- Set `Secure`, `HttpOnly`, `SameSite=Strict` on all cookies. Avoid storing sensitive data in `localStorage`.
-
-### 6.4 Prevent XSS
-- Escape or encode all user-supplied data in React templates. Avoid `dangerouslySetInnerHTML` unless content is sanitized.
-
----
 
 ## 7. Infrastructure & Configuration Management
 
-- Harden your hosting environment (e.g., Vercel/Netlify) by disabling unnecessary endpoints (GraphQL/GraphiQL playgrounds in production).
-- Rotate secrets and API keys regularly via your secrets manager.
-- Maintain minimal privileges: e.g., database accounts should only have read/write on required tables.
-- Keep Node.js, Next.js, and all system packages up to date.
-
----
+•  **Harden servers**: Disable unused ports and services in Docker images; run containers as non-root users.  
+•  **Secure defaults**: Base images should be minimal and regularly patched.  
+•  **TLS configuration**: Use strong cipher suites; disable weak protocols (SSLv3, TLS 1.0/1.1).  
+•  **Environment isolation**: Separate dev, staging, and production credentials and networks.  
+•  **Disable debug**: Ensure `NODE_ENV=production` and remove verbose logging in production.
 
 ## 8. Dependency Management
 
-- Commit and maintain `package-lock.json` to guarantee reproducible builds.
-- Integrate a vulnerability scanner (e.g., GitHub Dependabot, Snyk) to monitor and alert on CVEs in dependencies.
-- Trim unused packages; each added library increases the attack surface.
+•  **Lockfiles**: Commit `package-lock.json` or `yarn.lock` to ensure reproducible builds.  
+•  **Vet packages**: Use SCA tools (e.g., Dependabot, Snyk) to scan for known CVEs.  
+•  **Minimal footprint**: Only install required libraries to reduce attack surface.
+
+## 9. Testing, Monitoring & Incident Response
+
+•  **Automated tests**: Write unit and integration tests (Jest + Supertest) covering authentication flows, RBAC, and common error paths.  
+•  **Logging & alerting**: Centralize logs (e.g., ELK, Splunk) and monitor for anomalies (e.g., repeated auth failures).  
+•  **Audit trails**: Record critical actions (login, payment creation) with timestamp, user ID, and IP.  
+•  **Incident plan**: Define escalation procedures, communication plans, and post-mortem processes.
+
+## 10. Next Steps & Governance
+
+•  **Periodic reviews**: Schedule quarterly security assessments and penetration tests.  
+•  **Developer training**: Ensure all contributors understand secure coding practices and how to apply these guidelines.  
+•  **Governance**: Assign a security owner to maintain and update these guidelines as the project evolves.
 
 ---
 
-Adherence to these guidelines will ensure that **codeguide-starter** remains secure, maintainable, and resilient as it evolves. Regularly review and update this document to reflect new threats and best practices.
+Adhering to these guidelines will help ensure that the Warga+ backend remains secure, resilient, and compliant with industry best practices. Always flag uncertainties for security review and iterate on improvements continuously.

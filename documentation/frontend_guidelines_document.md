@@ -1,180 +1,154 @@
-# Frontend Guideline Document
+# Warga+ Mobile App Frontend Guidelines
 
-This document explains, in simple terms, how the frontend of the `codeguide-starter` project is structured, styled, and built. Anyone—technical or not—can read this and understand which tools are used, how components fit together, and what practices keep the app fast, reliable, and easy to maintain.
-
----
+This document describes the frontend setup, design principles, and technologies for the Warga+ React Native mobile app. It’s written in everyday language so anyone can understand how the app is built and maintained.
 
 ## 1. Frontend Architecture
 
-**Core Frameworks and Libraries**
-- **Next.js (App Router)**: A React-based framework that provides file-based routing, server-side rendering (SSR), static site generation (SSG), and built-in API endpoints all in one project.
-- **React 18**: The library for building user interfaces using components and hooks.
-- **TypeScript**: A superset of JavaScript that adds static types, helping catch errors early and making the code easier to understand and refactor.
+### 1.1 Overall Structure
+- Framework: React Native (with TypeScript) for building a cross-platform mobile app (iOS and Android).  
+- Bundler: Metro Bundler, which handles module resolution and bundling for React Native.  
+- Package Management: Yarn or npm to install and manage dependencies.  
+- Code Organization:
+  • `src/` — source code root  
+  • `src/components/` — reusable UI components  
+  • `src/screens/` — screen-level components (Dashboard, Payments, Feed, Profile)  
+  • `src/navigation/` — React Navigation setup  
+  • `src/context/` or `src/store/` — app-level state (Context API or Redux)  
+  • `src/hooks/` — custom React hooks  
+  • `src/theme/` — colors, typography, and global styles  
+  • `src/api/` — API service layer (fetch or axios)  
 
-**How It’s Organized**
-- The `app/` folder holds all pages and layouts. Each URL path corresponds to a folder:
-  - `/app/sign-in` and `/app/sign-up` for authentication pages.
-  - `/app/dashboard` for the protected user area.
-  - API routes live under `/app/api/auth/route.ts`.
-- Each route folder contains:
-  - `page.tsx` (the UI for that page)
-  - `layout.tsx` (wrapping structure, like headers or sidebars)
-  - Styles (e.g., `theme.css` in the dashboard).
-
-**Why This Works**
-- **Scalability**: Adding new pages or features means creating new folders with their own layouts and pages. You don’t have to touch a central router file.
-- **Maintainability**: Code is separated by feature. Backend logic (API routes) lives alongside the frontend code for that feature, reducing context-switching.
-- **Performance**: Next.js pre-renders pages where possible and splits code by route, so users download only what’s needed.
-
----
+### 1.2 Scalability, Maintainability, and Performance
+- Modular code: each feature lives in its own folder, making it easy to add, remove, or update features.  
+- TypeScript: catches errors early and enables sharing types with the backend.  
+- Service layer (e.g., `src/api/`) abstracts away direct calls to `fetch` or `axios`, so you can mock or swap implementations.  
+- Metro’s lazy loading and React.lazy allow splitting code into smaller bundles, improving initial load time.  
 
 ## 2. Design Principles
 
-1. **Usability**: Forms give instant feedback. Buttons and links are clearly labeled.
-2. **Accessibility**: Semantic HTML, proper color contrast, and focus outlines ensure people using screen readers or keyboards can navigate easily.
-3. **Responsiveness**: Layouts adapt from mobile (320px) up to large desktop screens. CSS media queries ensure content resizes and stacks neatly.
-4. **Consistency**: Shared global layout and styling mean pages look and feel like part of the same app.
+### 2.1 Usability
+- Keep screens simple and focused on a single task.  
+- Use clear labels, icons, and visual cues so users know where they are and what actions they can take.  
 
-**How We Apply Them**
-- Form fields use `aria-*` attributes and visible labels.
-- Error messages appear inline under inputs.
-- Navigation elements (header, sidebar) appear in every layout.
-- Breakpoints at 480px, 768px, and 1024px guide responsive adjustments.
+### 2.2 Accessibility
+- Ensure text has sufficient color contrast (WCAG AA standard).  
+- Support dynamic font sizes (React Native’s `AccessibilityInfo` and scaled font sizes).  
+- Add accessibility labels to buttons and images for screen readers.  
 
----
+### 2.3 Responsiveness
+- Use Flexbox for flexible layouts that adapt to different screen sizes and orientations.  
+- Test on both small and large devices (phones and tablets).  
+
+### 2.4 Consistency
+- Follow a design system with defined colors, typographic scales, and spacing.  
+- Reuse common components like buttons, cards, and headers.  
 
 ## 3. Styling and Theming
 
-**Approach**
-- **Global Styles (`globals.css`)**: Resets, base typography, and common utility classes.
-- **Section Styles (`theme.css` in dashboard)**: Styles specific to the dashboard area (colors, layouts).
-- We follow a **BEM-inspired naming** for classes when writing new CSS to avoid conflicts and keep selectors clear.
+### 3.1 Styling Approach
+- Library: styled-components/native for writing CSS-in-JS.  
+- Benefits: scoped styles, theming support, conditional styling, and better maintainability.  
 
-**Visual Style**: Modern flat design with subtle shadows for depth. Clear spacing and large touch targets on mobile.
+### 3.2 CSS Methodology
+- Organize styled components by feature.  
+- Use naming conventions that match component names, e.g. `StyledButton`, `HeaderContainer`.  
 
-**Color Palette**
-- **Primary Blue**: #1E90FF  (buttons, highlights)
-- **Secondary Navy**: #2C3E50  (header, sidebar background)
-- **Accent Cyan**: #00CEC9  (links, hover states)
-- **Neutral Light**: #F8F9FA  (page backgrounds)
-- **Neutral Dark**: #2D3436  (text, icons)
+### 3.3 Theming
+- Use a centralized `ThemeProvider` to supply colors, font sizes, and spacing.  
+- Theme file structure (`src/theme/theme.ts`):
+  • colors: primary, secondary, background, text, border  
+  • fonts: fontFamily, fontSizes (small, medium, large)  
+  • spacing: margin and padding scales  
 
-**Font**
-- **Inter** (sans-serif): Clean, modern, highly legible on screens. Fallback to system fonts like `-apple-system, BlinkMacSystemFont, sans-serif`.
+### 3.4 Visual Style
+- Style: Modern flat design with subtle shadows and rounded corners.  
+- Glassmorphism elements can be used sparingly (e.g., translucent bottom sheet backgrounds).  
 
-**Theming**
-- To keep a consistent look, all colors and font sizes are defined in CSS variables in `globals.css`:
-  ```css
-  :root {
-    --color-primary: #1E90FF;
-    --color-secondary: #2C3E50;
-    --color-accent: #00CEC9;
-    --color-bg: #F8F9FA;
-    --color-text: #2D3436;
-    --font-family: 'Inter', sans-serif;
-  }
-  ```
-- Components consume these variables for backgrounds, borders, and text.
+### 3.5 Color Palette
+- Primary Blue: #4A90E2  
+- Secondary Green: #50E3C2  
+- Accent Orange: #F5A623  
+- Background Light: #FFFFFF  
+- Background Dark: #F7F7F7  
+- Text Primary: #4A4A4A  
+- Text Secondary: #9B9B9B  
 
----
+### 3.6 Typography
+- Font Family: “Inter” (system fallback: “Roboto” on Android, “San Francisco” on iOS)  
+- Font Sizes:
+  • Small: 12px  
+  • Base: 16px  
+  • Large: 20px  
+  • Extra Large: 24px  
 
 ## 4. Component Structure
 
-**File Layout**
-- `/app` (top-level folder)
-  - `layout.tsx`: Global wrapper (nav, footer).
-  - `page.tsx`: Landing or redirect logic.
-  - `/sign-in`, `/sign-up`, `/dashboard`, `/api/auth`
-    - Each has its own `layout.tsx` and `page.tsx`.
-- **Common Components**: Put reusable UI pieces (buttons, inputs, cards) into a `/components` folder at the project root.
-
-**Reusability & Encapsulation**
-- Components are self-contained: each has its own styles (class names scoped to BEM) and behavior.
-- Shared logic (e.g., API calls) lives in `/lib` or `/hooks` so pages import only what they need.
-
-**Benefits**
-- **Easier Maintenance**: Fix a bug in one button component, and it updates everywhere.
-- **Better Team Collaboration**: Developers can own specific components or pages without stepping on each other’s code.
-
----
+- **Atomic Design**: break UI into atoms (Button, Text), molecules (Card, ListItem), and organisms (StatusCard, AnnouncementSection).  
+- **Reusable Components**: keep logic- and style-driven variations under `components/common/`.  
+- **Feature Components**: screen-specific UI under `components/dashboard/`, `components/payments/`, etc.  
+- Benefits: easier testing, consistent look and feel, faster development of new features.  
 
 ## 5. State Management
 
-**Current Approach**
-- **Local State**: React `useState` and `useEffect` for form values, loading flags, and error messages.
-- **Server State**: Fetch data (e.g., dashboard JSON) directly in page components or using React Server Components.
+### 5.1 Global State
+- Library: React Context API + useReducer for light state (user auth status, theme toggles).  
+- For more complex scenarios or very large state trees, consider Redux Toolkit.  
 
-**Sharing State**
-- **React Context**: A simple auth context (`AuthContext`) holds the user’s session info, login/logout methods, and makes it available to any component.
-  - Located in `/context/AuthContext.tsx`.
+### 5.2 Server State
+- Use a data-fetching library like React Query (optional) to cache API responses, handle loading/error states, and refetch data automatically.  
+- Alternatively, manage API calls manually in a service layer and store results in local component state or Context.  
 
-**Future Growth**
-- If complexity grows (deeply nested data, multiple user roles), consider:
-  - **Redux Toolkit** or **Zustand** for centralized state.
-  - Query libraries like **React Query** or **SWR** for caching and re-fetch logic.
-
----
+### 5.3 Local State
+- Use React’s useState and useReducer within components for UI-specific state (form inputs, toggles, modals).  
 
 ## 6. Routing and Navigation
 
-**Routing Library**
-- Built into **Next.js App Router**. Each folder under `/app` becomes a route automatically.
-- Layouts (`layout.tsx`) and pages (`page.tsx`) are colocated for that route.
-
-**Protected Pages**
-- The dashboard’s `layout.tsx` checks for a valid session (via cookie or context). If missing, it issues a server-side redirect to `/sign-in`.
-
-**Navigation Structure**
-- **Header**: Present in global layout with the app logo and conditional Sign In/Sign Out links.
-- **Sidebar**: Included in `dashboard/layout.tsx` with links to dashboard sections (expandable in future).
-
----
+- Library: React Navigation (Bottom Tab Navigator + Stack Navigator).  
+- Navigation Structure:
+  • Bottom Tabs: Dashboard, Payments, Feed, Profile  
+  • Each tab has its own stack for nested screens (e.g., PaymentDetails).  
+- Setup: configure `NavigationContainer` at app root, define `createBottomTabNavigator`, then embed stacks via `createStackNavigator`.  
+- Deep Linking: configure URL schemes (optional) for push notifications or external links.  
 
 ## 7. Performance Optimization
 
-1. **Code Splitting**: Next.js automatically breaks code by route. Users only load JS needed for the current page.
-2. **Lazy Loading**: For large components (charts, maps), wrap with `next/dynamic` to load them only when needed.
-3. **Image Optimization**: Use Next.js `<Image>` component to serve responsive, compressed images.
-4. **Caching**:
-   - Static assets (CSS, fonts) use long cache headers.
-   - API responses can be cached or ISR (Incremental Static Regeneration) applied.
-5. **Minification & Compression**: Next.js production builds automatically minify JS and CSS, and enable Brotli/Gzip on the CDN.
-
-These steps ensure fast page loads and smooth interactions.
-
----
+- **Lazy Loading**: use `React.lazy` and `Suspense` for large components or screens.  
+- **Code Splitting**: leverage Metro’s support for dynamic imports to reduce initial bundle size.  
+- **Asset Optimization**: resize and compress images, use `react-native-fast-image` for caching.  
+- **Avoid Unnecessary Renders**: use `React.memo`, `useCallback`, and `useMemo` for pure components and handler functions.  
+- **List Optimization**: use `FlatList` with proper `keyExtractor`, `getItemLayout`, and `initialNumToRender`.  
+- **Monitoring**: integrate performance tooling like React Native Performance Monitor or Flipper.  
 
 ## 8. Testing and Quality Assurance
 
-**Unit Tests**
-- **Jest** + **React Testing Library** for components and utility functions.
-- Example: test that the Sign In form shows an error message when fields are empty.
+### 8.1 Unit Tests
+- Tool: Jest with React Native preset.  
+- Library: React Native Testing Library for component rendering and interaction.  
 
-**Integration Tests**
-- Combine multiple components and hooks; test API calls with **msw** (Mock Service Worker).
+### 8.2 Integration Tests
+- Combine Jest with React Native Testing Library to test how multiple components work together.  
 
-**End-to-End (E2E) Tests**
-- **Cypress** or **Playwright** to simulate real user flows: signing up, logging in, and viewing the dashboard.
+### 8.3 End-to-End (E2E) Tests
+- Tool: Detox for simulating user flows on real devices or emulators.  
+- Scope: login flow, navigation between screens, form submissions.  
 
-**Linting & Formatting**
-- **ESLint** enforces code style and catches common bugs.
-- **Prettier** applies consistent formatting.
-- **Git Hooks** (via Husky) run linting/tests before each commit.
+### 8.4 Linting and Formatting
+- ESLint with a shared config (e.g., Airbnb + React Native rules).  
+- Prettier for code formatting.  
+- Husky + lint-staged to run checks before commits.  
 
-**Continuous Integration (CI)**
-- **GitHub Actions** runs tests and lint on each pull request, preventing regressions.
+## 9. Conclusion and Frontend Summary
 
----
+These guidelines outline a clear path to building, scaling, and maintaining the Warga+ mobile app frontend. By:
+- Organizing code with a modular architecture  
+- Applying consistent design principles (usability, accessibility, responsiveness)  
+- Using styled-components and a theme for a cohesive look  
+- Structuring components for reuse and clarity  
+- Managing state with Context API (and React Query for server state)  
+- Navigating via React Navigation  
+- Optimizing performance with lazy loading and memoization  
+- Ensuring quality through testing and linting  
 
-## 9. Conclusion and Overall Frontend Summary
+…the team can deliver a high-quality, maintainable, and user-friendly mobile experience.  
 
-The `codeguide-starter` frontend is built on modern, well-established tools—Next.js, React, and TypeScript—and follows clear principles around usability, accessibility, and maintainability. Its file-based structure, component-driven approach, and CSS-variable theming keep things organized and consistent.
-
-Key takeaways:
-- **Scalable Structure**: Add new features by creating new folders under `app/` without touching a central router.
-- **Component Reuse**: Shared UI pieces live in one place, making updates quick and error-free.
-- **Simple Styling**: Global and section-specific CSS, underpinned by CSS variables, ensures a unified look.
-- **Smooth Performance**: Next.js automatic optimizations plus best practices like lazy loading and caching.
-- **Quality Assurance**: A testing plan that covers unit, integration, and E2E scenarios, enforced by CI.
-
-With these guidelines, any developer coming into the project can understand how the pieces fit together, how to follow existing patterns, and how to keep the app fast, reliable, and easy to grow.
+Feel free to refer back to this document as the central source of truth for all frontend decisions on the Warga+ mobile project.

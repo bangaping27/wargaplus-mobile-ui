@@ -1,179 +1,190 @@
-# Backend Structure Document
-
-This document outlines the backend architecture, hosting, and infrastructure for the **codeguide-starter** project. It uses plain language so anyone can understand how the backend is set up and how it supports the application.
+# Backend Structure Document for Warga+ Mobile App
 
 ## 1. Backend Architecture
 
-- **Framework and Design Pattern**
-  - We use **Next.js API Routes** to handle all server-side logic. These routes live alongside the frontend code in the same repository, making development and deployment simpler.
-  - The backend follows a **layered pattern**:
-    1. **API Layer**: Receives requests (login, registration, data fetch).  
-    2. **Service Layer**: Contains the core business logic (user validation, password hashing).  
-    3. **Data Access Layer**: Talks to the database via a simple ORM (e.g., Prisma or TypeORM).
+**Overview**
+The Warga+ backend is built as a headless API using Next.js API Routes and TypeScript. It follows a modular design that separates routing, business logic, and data access, making it easy to add features and maintain the code over time.
 
-- **Scalability**
-  - Stateless API routes can scale horizontally—new instances can spin up on demand.  
-  - We can add caching or a message queue (e.g., Redis or RabbitMQ) without changing the core code.
+**Key Patterns & Frameworks**
+- Next.js API Routes: Organize RESTful endpoints under `app/api/`.
+- TypeScript: Enforces type safety across the entire stack.
+- Drizzle ORM: Provides a type-safe layer on top of PostgreSQL.
+- better-auth: Handles user authentication and session management.
+- Service Layer Pattern: Business logic lives outside route handlers (e.g., `paymentService.ts`).
 
-- **Maintainability**
-  - Code for each feature is grouped by route (authentication, dashboard).  
-  - A service layer separates complex logic from request handling.
-
-- **Performance**
-  - Lightweight Node.js handlers keep response times low.  
-  - Future use of database connection pooling and Redis for caching repeated queries.
+**Scalability, Maintainability & Performance**
+- Modular code folders (`app/api/`, `db/`, `lib/`) let teams work on features independently.
+- Type safety reduces runtime errors and speeds up development.
+- Stateless, token-based auth (JWT) supports horizontal scaling—any instance can service any request.
+- Dockerization ensures consistent environments from development to production.
 
 ## 2. Database Management
 
-- **Database Choice**
-  - We recommend **PostgreSQL** for structured data and reliable transactions.  
-  - In-memory caching can be added later with **Redis** for session tokens or frequently read data.
+**Technology**
+- PostgreSQL (relational SQL database) for structured data.
+- Drizzle ORM for type-safe database queries and migrations.
 
-- **Data Storage and Access**
-  - Use an ORM like **Prisma** or **TypeORM** to map JavaScript/TypeScript objects to database tables.
-  - Connection pooling ensures efficient use of database connections under load.
-  - Migrations track schema changes over time, keeping development, staging, and production in sync.
-
-- **Data Practices**
-  - Passwords are never stored in plain text—they are salted and hashed with **bcrypt** before saving.
-  - All outgoing data is typed and validated to prevent malformed records.
+**Data Organization & Practices**
+- Data is normalized into dedicated tables (users, sessions, payments, announcements, feed items, schedules).
+- Migrations managed by `drizzle-kit` ensure schema changes are tracked and applied consistently.
+- Environment variables store database credentials securely.
+- Regular backups and versioned migration scripts guard against data loss or schema drift.
 
 ## 3. Database Schema
 
-### Human-Readable Format
+**Human-Readable Description**
 
-- **Users**
-  - **id**: Unique identifier  
-  - **email**: User’s email address (unique)  
-  - **password_hash**: Securely hashed password  
-  - **created_at**: Account creation timestamp
+1. **Users**: Holds account info (email, password hash, name, address, house details, timestamps).
+2. **Sessions**: Tracks active login tokens, expiration, and links to users.
+3. **Payments (iuran)**: Records payment amount, date, status, and associated user.
+4. **Announcements**: Stores community announcements with title, message, and publish date.
+5. **Feed Items**: Contains information cards for the app feed (title, summary, image link, publish timestamp).
+6. **Schedules**: Event schedules with date, time, title, and description.
 
-- **Sessions**
-  - **id**: Unique session record  
-  - **user_id**: Links to a user  
-  - **token**: Random string for authentication  
-  - **expires_at**: When the token stops working  
-  - **created_at**: When the session was created
-
-- **DashboardItems** *(optional for dynamic data)*
-  - **id**: Unique record  
-  - **title**: Item title  
-  - **content**: Item details  
-  - **created_at**: When the item was added
-
-### SQL Schema (PostgreSQL)
+**PostgreSQL Schema (SQL)**
 ```sql
 -- Users table
+auto create extension if not exists "uuid-ossp";
 CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
+  password_hash TEXT NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  address TEXT,
+  house_number VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Sessions table
 CREATE TABLE sessions (
-  id SERIAL PRIMARY KEY,
-  user_id INT REFERENCES users(id) ON DELETE CASCADE,
-  token VARCHAR(255) UNIQUE NOT NULL,
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT UNIQUE NOT NULL,
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
--- Dashboard items table
-CREATE TABLE dashboard_items (
-  id SERIAL PRIMARY KEY,
-  title TEXT NOT NULL,
-  content TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
+-- Payments table
+CREATE TABLE payments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  amount NUMERIC(10,2) NOT NULL,
+  status VARCHAR(50) NOT NULL,
+  paid_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-```  
+
+-- Announcements table
+CREATE TABLE announcements (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title VARCHAR(200) NOT NULL,
+  content TEXT NOT NULL,
+  published_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Feed items table
+CREATE TABLE feed_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title VARCHAR(200) NOT NULL,
+  summary TEXT,
+  image_url TEXT,
+  published_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Schedules table
+CREATE TABLE schedules (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title VARCHAR(200) NOT NULL,
+  event_date DATE NOT NULL,
+  event_time TIME,
+  description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
 ## 4. API Design and Endpoints
 
-- **Approach**: We follow a **RESTful** style, grouping related endpoints under `/api` directories.
+**Approach**
+- RESTful design using Next.js API Routes under `app/api/`.
+- JSON over HTTP with clear status codes (200, 201, 400, 401, 404, 500).
+- Token passed in `Authorization: Bearer <token>` header for protected routes.
 
-- **Key Endpoints**
-  - `POST /api/auth/register`  
-    • Accepts `{ email, password }`  
-    • Creates a new user and issues a session token  
-  - `POST /api/auth/login`  
-    • Accepts `{ email, password }`  
-    • Verifies credentials and returns a session token  
-  - `POST /api/auth/logout`  
-    • Invalidates the session token on the server  
-  - `GET /api/dashboard/data`  
-    • Requires a valid session  
-    • Returns user-specific data or dashboard items  
+**Key Endpoints**
 
-- **Communication**
-  - Frontend sends JSON requests; backend replies with JSON and appropriate HTTP status codes.  
-  - Protected routes check for a valid session token (in cookies or Authorization header).
+1. **Authentication** (`/api/auth`)
+   - POST `/sign-in`: Accepts email and password. Returns JWT token.
+   - POST `/sign-up`: Accepts user details. Creates account and returns token.
+   - POST `/sign-out`: Invalidates the session token.
+
+2. **Dashboard Data** (`/api/dashboard`)
+   - GET `/api/dashboard`: Returns user’s payment status, latest announcements, and upcoming schedules.
+   - Protected: Requires valid JWT.
+
+3. **Payments** (`/api/payments`)
+   - GET `/api/payments`: Lists user’s payment history (with pagination).
+   - POST `/api/payments`: Records a new payment.
+   - Protected: Requires valid JWT.
+
+4. **Feed** (`/api/feed`)
+   - GET `/api/feed`: Returns paginated list of feed items.
+   - Protected: Requires valid JWT.
+
+5. **Profile** (`/api/profile`)
+   - GET `/api/profile`: Fetches user profile data.
+   - PUT `/api/profile`: Updates user information (address, house number).
+   - Protected: Requires valid JWT.
 
 ## 5. Hosting Solutions
 
-- **Cloud Provider**:  
-  - **Vercel** (recommended) offers seamless Next.js deployments, auto-scaling, and built-in CDN.  
-  - Alternatively, **Netlify** or any Node.js-capable host will work.
+**Environment**
+- Docker & Docker Compose: Local development with consistent infrastructure (Next.js server + PostgreSQL).
+- Vercel: Production hosting for Next.js API Routes.
 
-- **Benefits**
-  - **Reliability**: Global servers and failover across regions.  
-  - **Scalability**: Auto-scale serverless functions based on traffic.  
-  - **Cost-Effectiveness**: Pay-per-use model means low cost for small projects.
+**Benefits**
+- Docker: Developers can spin up the exact stack locally, reducing "works on my machine" issues.
+- Vercel: Automatic scaling, global edge network, built-in SSL, and a generous free tier.
+- Environment variables in Vercel keep secrets out of source control.
 
 ## 6. Infrastructure Components
 
-- **Load Balancer**
-  - Provided by the hosting platform—distributes API requests across function instances.
-
-- **CDN (Content Delivery Network)**
-  - Vercel’s global edge network caches static assets (CSS, JS, images) for faster page loads.
-
-- **Caching**
-  - **Redis** (optional) for session storage or caching dashboard queries to reduce database load.
-
-- **Object Storage**
-  - For file uploads or backups, integrate with AWS S3 or similar services.
-
-- **Message Queue**
-  - In future, use **RabbitMQ** or **Kafka** for background tasks (e.g., email notifications).
+- **Load Balancer & Auto-Scaling**: Managed by Vercel—automatically distributes traffic across instances and scales on demand.
+- **Caching**: Vercel’s edge network caches static responses at the CDN layer. For dynamic data, a Redis instance (optional) can cache frequent queries (e.g., announcements).
+- **Content Delivery Network (CDN)**: Vercel provides a global CDN, speeding up asset delivery.
+- **Container Registry**: Docker images can be stored in Docker Hub or a private container registry for CI/CD pipelines.
 
 ## 7. Security Measures
 
 - **Authentication & Authorization**
-  - Passwords hashed with **bcrypt** and salted.  
-  - Session tokens stored in secure, HttpOnly cookies or Authorization headers.  
-  - Protected endpoints verify tokens before proceeding.
-
+  - JWT tokens for stateless session management.
+  - Protected routes verify token signature and expiry.
 - **Data Encryption**
-  - **HTTPS/TLS** encrypts data in transit.  
-  - Database connections use SSL to encrypt data between the app and the database.
-
+  - TLS/HTTPS encrypts data in transit by default on Vercel.
+  - Postgres credentials stored securely in environment variables.
 - **Input Validation**
-  - Every incoming request is validated (e.g., valid email format, password length) to prevent SQL injection or other attacks.
-
-- **Web Security Best Practices**
-  - Enable **CORS** policies to limit allowed origins.  
-  - Use **CSRF tokens** or same-site cookies to prevent cross-site requests.  
-  - Set secure headers with **Helmet** or a similar middleware.
+  - Use Zod (or a similar library) in route handlers to validate request bodies.
+- **Database Security**
+  - Least-privilege database user with only needed permissions.
+  - Regular backups and encrypted snapshots.
+- **Other Practices**
+  - Enable CORS with strict origin checks.
+  - Sanitize all inputs to prevent SQL injection or XSS.
 
 ## 8. Monitoring and Maintenance
 
+- **Logging & Error Tracking**
+  - Vercel server logs.
+  - Integrate Sentry or LogRocket for real-time error alerts.
 - **Performance Monitoring**
-  - Integrate **Sentry** or **LogRocket** for real-time crash reporting and performance tracing.  
-  - Use Vercel’s built-in analytics to track request latencies and error rates.
-
-- **Logging**
-  - Structured logs (JSON) for all API requests and errors, shipped to a log management service like **Datadog** or **Logflare**.
-
-- **Health Checks**
-  - Define a `/health` endpoint that returns a 200 status if the service is up and the database is reachable.
-
-- **Maintenance Strategies**
-  - Automated migrations run on deploy to keep the database schema up to date.  
-  - Scheduled dependency audits and security scans (e.g., `npm audit`).
-  - Regular backups of the database (daily or weekly depending on usage).
+  - Vercel Analytics for request latency.
+  - Database monitoring via tools like pgAdmin or a managed Postgres monitoring service.
+- **Testing**
+  - Jest & Supertest for integration tests against API endpoints.
+  - CI/CD pipelines (GitHub Actions) run tests on every push.
+- **Maintenance**
+  - Scheduled database vacuum and index maintenance.
+  - Versioned database migrations via `drizzle-kit`.
+  - Regular dependency updates with tools like Dependabot.
 
 ## 9. Conclusion and Overall Backend Summary
 
-The backend for **codeguide-starter** is built on Next.js API Routes and Node.js, paired with PostgreSQL for data and optional Redis for caching. It follows a clear layered architecture that keeps code easy to maintain and extend. With RESTful endpoints for authentication and data, secure practices like password hashing and HTTPS, and hosting on Vercel for scalability and global performance, this setup meets the project’s goals for a fast, secure, and developer-friendly foundation. Future enhancements—such as background job queues, advanced monitoring, or richer data models—can be added without disrupting the core structure.
+The Warga+ backend leverages Next.js API Routes, TypeScript, Drizzle ORM, and better-auth to deliver a secure, scalable, and maintainable API for the React Native mobile app. Docker and Vercel streamline development and production environments, while the modular folder structure and service-layer pattern ensure clarity and extensibility. Comprehensive security measures, monitoring tools, and a clear migration strategy protect data integrity and uptime. This architecture aligns directly with Warga+’s goals: fast delivery of reliable user and community data to the mobile client, with room to grow as new features emerge.

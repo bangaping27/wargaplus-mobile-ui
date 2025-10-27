@@ -1,117 +1,109 @@
-# Project Requirements Document: codeguide-starter
-
----
+# Project Requirements Document (PRD)
 
 ## 1. Project Overview
 
-The **codeguide-starter** project is a boilerplate web application that provides a ready-made foundation for any web project requiring secure user authentication and a post-login dashboard. It sets up the common building blocks—sign-up and sign-in pages, API routes to handle registration and login, and a simple dashboard interface driven by static data. By delivering this skeleton, it accelerates development time and ensures best practices are in place from day one.
+Warga+ is a community-focused mobile application that helps residents manage their neighborhood activities—from viewing announcements and schedules to tracking payment history (iuran) and personal profile details. To power the React Native frontend, we will build a headless backend API based on a robust full-stack starter template (`codeguide-starter-fullstack`) using Next.js. This backend will centralize all server-side concerns (authentication, data storage, business logic) so the mobile team can focus purely on UI/UX.
 
-This starter kit is being built to solve the friction developers face when setting up repeated common tasks: credential handling, session management, page routing, and theming. Key objectives include: 1) delivering a fully working authentication flow (registration & login), 2) providing a gated dashboard area upon successful login, 3) establishing a clear, maintainable project structure using Next.js and TypeScript, and 4) demonstrating a clean theming approach with global and section-specific CSS. Success is measured by having an end-to-end login journey in under 200 lines of code and zero runtime type errors.
-
----
+By decoupling the backend from the frontend, we aim to accelerate development, enforce end-to-end type safety with TypeScript and Drizzle ORM, and ensure a secure, scalable deployment on platforms like Vercel and Docker. Key success criteria include: secure token-based authentication (JWT), complete set of protected REST endpoints (dashboard, payments, feed, profile), type-safe database interactions, clear API documentation, and automated tests ensuring reliability.
 
 ## 2. In-Scope vs. Out-of-Scope
 
-### In-Scope (Version 1)
-- User registration (sign-up) form with validation
-- User login (sign-in) form with validation
-- Next.js API routes under `/api/auth/route.ts` handling:
-  - Credential validation
-  - Password hashing (e.g., bcrypt)
-  - Session creation or JWT issuance
-- Protected dashboard pages under `/dashboard`:
-  - `layout.tsx` wrapping dashboard content
-  - `page.tsx` rendering static data from `data.json`
-- Global application layout in `/app/layout.tsx`
-- Basic styling via `globals.css` and `dashboard/theme.css`
-- TypeScript strict mode enabled
+### In-Scope (MVP Version)
+- User authentication endpoints: sign-up, sign-in, sign-out with JWT tokens.  
+- Protected REST API routes under `/api/`:  
+  - **/api/dashboard**: user status, announcements, schedule.  
+  - **/api/payments**: fetch payment history, submit new payment.  
+  - **/api/feed**: paginated list of community posts.  
+  - **/api/profile**: get/update user profile and address.  
+- PostgreSQL database schema for users, sessions, payments (iuran), announcements, feed items, schedules.  
+- Drizzle ORM models and migration scripts via `drizzle-kit`.  
+- Error handling with consistent HTTP status codes & JSON error messages.  
+- Basic integration tests (Jest + Supertest) for each endpoint.  
+- OpenAPI (Swagger) documentation for all routes.  
+- Containerization: Dockerfile and `docker-compose.yaml`.  
+- Environment variable management (.env) for secrets.
 
 ### Out-of-Scope (Later Phases)
-- Integration with a real database (PostgreSQL, MongoDB, etc.)
-- Advanced authentication flows (password reset, email verification, MFA)
-- Role-based access control (RBAC)
-- Multi-tenant or white-label theming
-- Unit, integration, or end-to-end testing suites
-- CI/CD pipeline and production deployment scripts
-
----
+- Web-based admin dashboard or UI components.  
+- Social login (OAuth with Google/Facebook).  
+- Push notifications or real-time features (WebSockets).  
+- Advanced analytics or reporting endpoints.  
+- Offline data synchronization support.  
+- Multi-tenancy or role-based access beyond basic user/auth scope.  
 
 ## 3. User Flow
 
-A new visitor lands on the root URL and sees a welcome page with options to **Sign Up** or **Sign In**. If they choose Sign Up, they fill in their email, password, and hit “Create Account.” The form submits to `/api/auth/route.ts`, which hashes the password, creates a new user session or token, and redirects them to the dashboard. If any input is invalid, an inline error message explains the issue (e.g., “Password too short”).
+When a new user opens the Warga+ mobile app, they land on the **Login Screen**. They enter their email and password, and the app sends a `POST` request to `/api/auth/sign-in`. Upon successful login, the API returns a JWT token. The app stores this token securely (e.g., SecureStore/Keychain) and redirects the user to the **Dashboard Screen**.
 
-Once authenticated, the user is taken to the `/dashboard` route. Here they see a sidebar or header defined by `dashboard/layout.tsx`, and the main panel pulls in static data from `data.json`. They can log out (if that control is present), but otherwise their entire session is managed by server-side cookies or tokens. Returning users go directly to Sign In, submit credentials, and upon success they land back on `/dashboard`. Any unauthorized access to `/dashboard` redirects back to Sign In.
-
----
+On the **Dashboard Screen**, the mobile app makes a `GET` request to `/api/dashboard` with the JWT in the `Authorization` header. The response includes the users current payment status, a list of community announcements, and upcoming schedule items, which the app then displays via `StatusCard`, `AnnouncementList`, and `ScheduleList` components. From here, the user can navigate via a bottom tab bar to the **Payments**, **Feed**, and **Profile** screens. Each screen similarly calls its respective endpoint (`/api/payments`, `/api/feed`, `/api/profile`), handles JSON responses, and renders the data. The user can log out at any time, triggering a call to `/api/auth/sign-out` and returning to the login screen.
 
 ## 4. Core Features
 
-- **Sign-Up Page (`/app/sign-up/page.tsx`)**: Form fields for email & password, client-side validation, POST to `/api/auth`.
-- **Sign-In Page (`/app/sign-in/page.tsx`)**: Form fields for email & password, client-side validation, POST to `/api/auth`.
-- **Authentication API (`/app/api/auth/route.ts`)**: Handles both registration and login based on HTTP method, integrates password hashing (bcrypt) and session or JWT logic.
-- **Global Layout (`/app/layout.tsx` + `globals.css`)**: Shared header, footer, and CSS resets across all pages.
-- **Dashboard Layout (`/app/dashboard/layout.tsx` + `dashboard/theme.css`)**: Sidebar or top nav for authenticated flows, section-specific styling.
-- **Dashboard Page (`/app/dashboard/page.tsx`)**: Reads `data.json`, renders it as cards or tables.
-- **Static Data Source (`/app/dashboard/data.json`)**: Example dataset to demo dynamic rendering.
-- **TypeScript Configuration**: `tsconfig.json` with strict mode and path aliases (if any).
-
----
+- **Authentication & Authorization**  
+  - JWT-based sign-up, sign-in, sign-out endpoints.  
+  - Middleware to protect all `/api/*` routes and validate tokens.  
+- **Dashboard Endpoint** (`/api/dashboard`)  
+  - Fetch user payment status, announcements, and schedule in one JSON payload.  
+- **Payments Endpoint** (`/api/payments`)  
+  - Retrieve paginated payment history.  
+  - Submit new payment records with idempotency support.  
+- **Feed Endpoint** (`/api/feed`)  
+  - Return paginated list of community posts (`InfoCard` data).  
+- **Profile Endpoint** (`/api/profile`)  
+  - Get and update user profile, address, and house details.  
+- **Database Layer**  
+  - Drizzle ORM schemas: users, sessions, payments, announcements, feed items, schedules.  
+  - Migration scripts managed by `drizzle-kit`.  
+- **Error Handling**  
+  - Consistent JSON error format, clear HTTP status codes (400, 401, 404, 500).  
+- **Testing & Documentation**  
+  - Integration tests with Jest and Supertest.  
+  - OpenAPI specification for all endpoints.  
+- **Deployment & Environment**  
+  - Dockerfile and `docker-compose.yaml` for local dev environment.  
+  - Vercel configuration for production deployment.  
 
 ## 5. Tech Stack & Tools
 
-- **Framework**: Next.js (App Router) for file-based routing, SSR/SSG, and API routes.
-- **Language**: TypeScript for type safety.
-- **UI Library**: React 18 for component-based UI.
-- **Styling**: Plain CSS via `globals.css` (global reset) and `theme.css` (sectional styling). Can easily migrate to CSS Modules or Tailwind in the future.
-- **Backend**: Node.js runtime provided by Next.js API routes.
-- **Password Hashing**: bcrypt (npm package).
-- **Session/JWT**: NextAuth.js or custom JWT logic (to be decided in implementation).
-- **IDE & Dev Tools**: VS Code with ESLint, Prettier extensions. Optionally, Cursor.ai for AI-assisted coding.
-
----
+- **Backend Framework**: Next.js API Routes (TypeScript)
+- **Authentication Library**: `better-auth` configured for JWT in `lib/auth.ts`
+- **Database**: PostgreSQL
+- **ORM**: Drizzle ORM + `drizzle-kit` for migrations
+- **API Testing**: Jest + Supertest
+- **API Documentation**: OpenAPI (Swagger)
+- **Containerization**: Docker & `docker-compose`
+- **Deployment**: Vercel
+- **Request Validation**: Zod (optional for body/schema validation)
+- **Client Integration**: React Native app will use `axios` or `fetch` with stored JWT tokens
 
 ## 6. Non-Functional Requirements
 
-- **Performance**: Initial page load under 200 ms on a standard broadband connection. API responses under 300 ms.
-- **Security**:
-  - HTTPS only in production.
-  - Proper CORS, CSRF protection for API routes.
-  - Secure password storage (bcrypt with salt).
-  - No credentials or secrets checked into version control.
-- **Scalability**: Structure must support adding database integration, caching layers, and advanced auth flows without rewiring core app.
-- **Usability**: Forms should give real-time feedback on invalid input. Layout must be responsive (mobile > 320 px).
-- **Maintainability**: Code must adhere to TypeScript strict mode. Linting & formatting enforced by ESLint/Prettier.
-
----
+- **Performance**: API response time ≤ 200ms average under normal load; 95th percentile ≤ 500ms.  
+- **Scalability**: Stateless API suitable for horizontal scaling on Vercel.  
+- **Security**:  
+  - Enforce HTTPS for all endpoints.  
+  - Use JWT tokens stored securely on the client.  
+  - Protect against OWASP Top Ten risks (e.g., injection, CSRF not applicable for mobile).  
+- **Usability**: Clear and consistent error messages; intuitive JSON response structures.  
+- **Reliability**: 99.9% uptime SLA for the API.  
+- **Compliance**: Secure handling of user data; environment secrets never committed to source control.
 
 ## 7. Constraints & Assumptions
 
-- **No Database**: Dashboard uses only `data.json`; real database integration is deferred.
-- **Node Version**: Requires Node.js >= 14.
-- **Next.js Version**: Built on Next.js 13+ App Router.
-- **Authentication**: Assumes availability of bcrypt or NextAuth.js at implementation time.
-- **Hosting**: Targets serverless or Node.js-capable hosting (e.g., Vercel, Netlify).
-- **Browser Support**: Modern evergreen browsers; no IE11 support required.
-
----
+- The React Native frontend will handle token storage and refresh logic; backend only issues and verifies JWT.  
+- Next.js version ≥ 13.4 with App Router is available on Vercel.  
+- PostgreSQL instance provisioned locally (via Docker) and in production.  
+- `drizzle-kit` must support the chosen database version for migrations.  
+- No external AI models or machine learning components are required at this stage.
 
 ## 8. Known Issues & Potential Pitfalls
 
-- **Static Data Limitation**: `data.json` is only for demo. A real API or database will be needed to avoid stale data.
-  *Mitigation*: Define a clear interface for data fetching so swapping to a live endpoint is trivial.
-
-- **Global CSS Conflicts**: Using global styles can lead to unintended overrides.
-  *Mitigation*: Plan to migrate to CSS Modules or utility-first CSS in Phase 2.
-
-- **API Route Ambiguity**: Single `/api/auth/route.ts` handling both sign-up and sign-in could get complex.
-  *Mitigation*: Clearly branch on HTTP method (`POST /register` vs. `POST /login`) or split into separate files.
-
-- **Lack of Testing**: No test suite means regressions can slip in.
-  *Mitigation*: Build a minimal Jest + React Testing Library setup in an early iteration.
-
-- **Error Handling Gaps**: Client and server must handle edge cases (network failures, malformed input).
-  *Mitigation*: Define a standard error response schema and show user-friendly messages.
+- **Session vs. Token Authentication**: The current `better-auth` setup is cookie-based by default. We must refactor it to JWT for mobile compatibility.  
+- **Rate Limits & Throttling**: Vercel’s serverless functions may hit cold starts or concurrency limits. Mitigation: implement simple rate limiting or caching for frequently accessed endpoints (dashboard).  
+- **Payment Idempotency**: Without unique idempotency keys, duplicate payment submissions can occur. Mitigation: require a client-generated idempotency key in the request body and enforce uniqueness in the database.  
+- **Database Schema Evolution**: Adding new tables or columns without proper migration can cause runtime errors. Mitigation: require all schema changes to go through `drizzle-kit` migration scripts and CI validation.  
+- **Testing Coverage Gaps**: Without end-to-end tests, subtle bugs may slip through. Mitigation: enforce a minimum test coverage threshold in CI.
 
 ---
 
-This PRD should serve as the single source of truth for the AI model or any developer generating the next set of technical documents: Tech Stack Doc, Frontend Guidelines, Backend Structure, App Flow, File Structure, and IDE Rules. It contains all functional and non-functional requirements with no ambiguity, enabling seamless downstream development.
+This PRD serves as the definitive guide for building and extending the Warga+ backend API. It contains all necessary details—scope, user flow, features, tech stack, and constraints—to generate further technical documents (Tech Stack Doc, Frontend Guidelines, Backend Structure) without ambiguity.
